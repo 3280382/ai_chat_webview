@@ -5,7 +5,6 @@ import 'screens/gallery_screen.dart';
 import 'screens/info_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/detail_screen.dart';
-import 'models/item_model.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>();

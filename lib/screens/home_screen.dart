@@ -11,7 +11,6 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth > 800;
-    final isTablet = screenWidth > 450 && screenWidth <= 800;
     
     return Scaffold(
       appBar: AppBar(
