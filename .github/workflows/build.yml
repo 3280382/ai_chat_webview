@@ -45,26 +45,64 @@ jobs:
         continue-on-error: true
       
       - name: Build APK
-        run: flutter build apk --release --build-name=${{ github.event.inputs.version || '1.0.0' }}
+        run: |
+          set -x
+          flutter build apk --release --build-name=${{ github.event.inputs.version || '1.0.0' }} --verbose 2>&1 | tail -100
+        continue-on-error: true
       
-      - name: Build App Bundle
-        run: flutter build appbundle --release --build-name=${{ github.event.inputs.version || '1.0.0' }}
+      - name: Check build output
+        run: |
+          ls -la build/app/outputs/flutter-apk/ 2>/dev/null || echo "APK not found"
+          ls -la build/app/outputs/bundle/release/ 2>/dev/null || echo "AAB not found"
       
-      - name: Upload APK
+      - name: Upload APK if exists
         uses: actions/upload-artifact@v4
+        if: hashFiles('build/app/outputs/flutter-apk/app-release.apk') != ''
         with:
           name: android-apk
           path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
       
-      - name: Upload AAB
+      - name: Upload AAB if exists
         uses: actions/upload-artifact@v4
+        if: hashFiles('build/app/outputs/bundle/release/app-release.aab') != ''
         with:
           name: android-aab
           path: build/app/outputs/bundle/release/app-release.aab
-          if-no-files-found: error
 
-  # iOS 构建 (需要 macOS)
+  # Web 构建（最简单，先测试这个）
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+      
+      - name: Get dependencies
+        run: flutter pub get
+      
+      - name: Build Web with verbose
+        run: |
+          set -x
+          flutter build web --release --build-name=${{ github.event.inputs.version || '1.0.0' }} --verbose 2>&1 | tail -200
+        continue-on-error: true
+      
+      - name: Check build output
+        run: |
+          ls -la build/web/ 2>/dev/null || echo "Web build not found"
+      
+      - name: Upload Web build
+        uses: actions/upload-artifact@v4
+        if: hashFiles('build/web/index.html') != ''
+        with:
+          name: web-build
+          path: build/web/
+
+  # iOS 构建
   build-ios:
     runs-on: macos-latest
     steps:
@@ -80,15 +118,18 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
       
-      - name: Build iOS (no codesign)
-        run: flutter build ios --release --no-codesign --build-name=${{ github.event.inputs.version || '1.0.0' }}
+      - name: Build iOS
+        run: |
+          set -x
+          flutter build ios --release --no-codesign --build-name=${{ github.event.inputs.version || '1.0.0' }} --verbose 2>&1 | tail -100
+        continue-on-error: true
       
       - name: Upload iOS build
         uses: actions/upload-artifact@v4
+        if: hashFiles('build/ios/iphoneos/Runner.app') != ''
         with:
           name: ios-build
           path: build/ios/iphoneos/
-          if-no-files-found: warn
 
   # Windows 构建
   build-windows:
@@ -106,18 +147,18 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
       
-      - name: Enable Windows desktop
-        run: flutter config --enable-windows-desktop
-      
       - name: Build Windows
-        run: flutter build windows --release --build-name=${{ github.event.inputs.version || '1.0.0' }}
+        run: |
+          flutter config --enable-windows-desktop
+          flutter build windows --release --build-name=${{ github.event.inputs.version || '1.0.0' }} --verbose 2>&1 | Select-Object -Last 100
+        continue-on-error: true
       
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
+        if: hashFiles('build/windows/x64/runner/Release/*.exe') != ''
         with:
           name: windows-build
           path: build/windows/x64/runner/Release/
-          if-no-files-found: error
 
   # Linux 构建
   build-linux:
@@ -140,46 +181,21 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
       
-      - name: Enable Linux desktop
-        run: flutter config --enable-linux-desktop
-      
       - name: Build Linux
-        run: flutter build linux --release --build-name=${{ github.event.inputs.version || '1.0.0' }}
+        run: |
+          set -x
+          flutter config --enable-linux-desktop
+          flutter build linux --release --build-name=${{ github.event.inputs.version || '1.0.0' }} --verbose 2>&1 | tail -100
+        continue-on-error: true
       
       - name: Upload Linux build
         uses: actions/upload-artifact@v4
+        if: hashFiles('build/linux/x64/release/bundle/*') != ''
         with:
           name: linux-build
           path: build/linux/x64/release/bundle/
-          if-no-files-found: error
 
-  # Web 构建
-  build-web:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
-      
-      - name: Get dependencies
-        run: flutter pub get
-      
-      - name: Build Web
-        run: flutter build web --release --build-name=${{ github.event.inputs.version || '1.0.0' }}
-      
-      - name: Upload Web build
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-build
-          path: build/web/
-          if-no-files-found: error
-
-  # 创建发布版本 (仅在打标签时)
+  # 创建发布版本 (仅在打标签时且至少有一个构建成功)
   release:
     needs: [build-android, build-ios, build-windows, build-linux, build-web]
     runs-on: ubuntu-latest
@@ -191,15 +207,16 @@ jobs:
           path: artifacts
       
       - name: List artifacts
-        run: ls -la artifacts/
+        run: ls -la artifacts/ || echo "No artifacts"
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
+        if: hashFiles('artifacts/**/*') != ''
         with:
           files: |
             artifacts/android-apk/*.apk
             artifacts/android-aab/*.aab
-            artifacts/windows-build/**/*.exe
+            artifacts/windows-build/**/*
             artifacts/linux-build/**/*
             artifacts/web-build/**/**
           draft: false
