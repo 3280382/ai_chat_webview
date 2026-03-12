@@ -114,7 +114,7 @@ class InfoScreen extends StatelessWidget {
         'description': '一套代码，同时支持 Android、iOS、Windows、Web',
       },
       {
-        'icon': Icons.small,
+        'icon': Icons.devices_other,
         'title': '响应式设计',
         'description': '自适应手机、平板、桌面不同屏幕尺寸',
       },
