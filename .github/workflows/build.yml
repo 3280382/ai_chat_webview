@@ -1,4 +1,4 @@
-name: Build Android & Web
+name: Build All Platforms
 
 on:
   push:
@@ -16,7 +16,7 @@ env:
   FLUTTER_VERSION: '3.19.6'
 
 jobs:
-  # 代码质量检查
+  # ========== 代码质量检查 ==========
   analyze:
     runs-on: ubuntu-latest
     steps:
@@ -38,7 +38,7 @@ jobs:
       - name: Check formatting
         run: dart format --output=none --set-exit-if-changed lib/ || echo "⚠️ Formatting issues found, but continuing build"
 
-  # 运行测试
+  # ========== 运行测试 ==========
   test:
     runs-on: ubuntu-latest
     needs: analyze
@@ -58,7 +58,7 @@ jobs:
       - name: Run tests
         run: flutter test || echo "⚠️ Tests failed, but continuing build (network issues in CI)"
 
-  # Android 构建
+  # ========== Android 构建 ==========
   build-android:
     runs-on: ubuntu-latest
     needs: [analyze, test]
@@ -103,7 +103,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  # Web 构建
+  # ========== Web 构建 ==========
   build-web:
     runs-on: ubuntu-latest
     needs: [analyze, test]
@@ -131,10 +131,156 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  # 创建 Release (仅在推送 tag 时)
+  # ========== iOS 构建 (需要 macOS) ==========
+  build-ios:
+    runs-on: macos-latest
+    needs: [analyze, test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+      
+      - name: Get dependencies
+        run: flutter pub get
+      
+      - name: Build iOS (no codesign)
+        run: flutter build ios --release --no-codesign
+      
+      - name: Create iOS archive
+        run: |
+          cd build/ios/iphoneos
+          tar -czf Runner.app.tar.gz Runner.app
+      
+      - name: Upload iOS build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-${{ github.ref_name }}
+          path: build/ios/iphoneos/Runner.app.tar.gz
+          if-no-files-found: warn
+          retention-days: 30
+
+  # ========== Windows 构建 ==========
+  build-windows:
+    runs-on: windows-latest
+    needs: [analyze, test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+      
+      - name: Get dependencies
+        run: flutter pub get
+      
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+      
+      - name: Build Windows
+        run: flutter build windows --release
+      
+      - name: Create Windows archive
+        run: |
+          cd build\windows\x64\runner\Release
+          7z a -tzip windows-build.zip *
+      
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-${{ github.ref_name }}
+          path: build/windows/x64/runner/Release/windows-build.zip
+          if-no-files-found: error
+          retention-days: 30
+
+  # ========== Linux 构建 ==========
+  build-linux:
+    runs-on: ubuntu-latest
+    needs: [analyze, test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev libblkid-dev liblzma-dev
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+      
+      - name: Get dependencies
+        run: flutter pub get
+      
+      - name: Enable Linux desktop
+        run: flutter config --enable-linux-desktop
+      
+      - name: Build Linux
+        run: flutter build linux --release
+      
+      - name: Create Linux archive
+        run: |
+          cd build/linux/x64/release
+          tar -czf linux-build.tar.gz bundle/
+      
+      - name: Upload Linux build
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build-${{ github.ref_name }}
+          path: build/linux/x64/release/linux-build.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+
+  # ========== macOS 构建 ==========
+  build-macos:
+    runs-on: macos-latest
+    needs: [analyze, test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+      
+      - name: Get dependencies
+        run: flutter pub get
+      
+      - name: Enable macOS desktop
+        run: flutter config --enable-macos-desktop
+      
+      - name: Build macOS
+        run: flutter build macos --release
+      
+      - name: Create macOS archive
+        run: |
+          cd build/macos/Build/Products/Release
+          tar -czf macos-build.tar.gz *.app
+      
+      - name: Upload macOS build
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build-${{ github.ref_name }}
+          path: build/macos/Build/Products/Release/macos-build.tar.gz
+          if-no-files-found: warn
+          retention-days: 30
+
+  # ========== 创建 Release (仅在推送 tag 时) ==========
   release:
     runs-on: ubuntu-latest
-    needs: [build-android, build-web]
+    needs: [build-android, build-web, build-ios, build-windows, build-linux, build-macos]
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
@@ -142,45 +288,101 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          pattern: "*-build-*"
-          merge-multiple: true
-      
-      - name: Download APK artifact
+      - name: Download Android APK
         uses: actions/download-artifact@v4
         with:
           name: android-apk-${{ github.ref_name }}
-          path: artifacts/apk
+          path: artifacts/android
       
-      - name: Download AAB artifact
+      - name: Download Android AAB
         uses: actions/download-artifact@v4
         with:
           name: android-aab-${{ github.ref_name }}
-          path: artifacts/aab
+          path: artifacts/android
       
-      - name: Create Release
+      - name: Download Web build
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build-${{ github.ref_name }}
+          path: artifacts/web
+      
+      - name: Download iOS build
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-build-${{ github.ref_name }}
+          path: artifacts/ios
+        continue-on-error: true
+      
+      - name: Download Windows build
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build-${{ github.ref_name }}
+          path: artifacts/windows
+        continue-on-error: true
+      
+      - name: Download Linux build
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build-${{ github.ref_name }}
+          path: artifacts/linux
+        continue-on-error: true
+      
+      - name: Download macOS build
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-build-${{ github.ref_name }}
+          path: artifacts/macos
+        continue-on-error: true
+      
+      - name: Create Multi-Platform Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "Release ${{ github.ref_name }}"
+          name: "🚀 Multi-Platform Release ${{ github.ref_name }}"
           body: |
-            ## 🎉 Release ${{ github.ref_name }}
+            ## 🎉 Multi-Platform Release ${{ github.ref_name }}
             
             ### 📱 Android
-            - APK: `app-release.apk`
-            - AAB: `app-release.aab`
+            - `app-release.apk` - Android APK (直接安装)
+            - `app-release.aab` - Android App Bundle (Google Play)
             
             ### 🌐 Web
-            - 构建文件包含在 `web-build` 中
+            - 构建文件在 `web-build` 目录中
+            - 可部署到任何静态网站托管服务
+            
+            ### 🍎 iOS
+            - `Runner.app.tar.gz` - iOS 应用包
+            - ⚠️ 需要 Xcode 进行签名和发布
+            
+            ### 🪟 Windows
+            - `windows-build.zip` - Windows 桌面应用
+            - 解压后运行 `multi_platform_app.exe`
+            
+            ### 🐧 Linux
+            - `linux-build.tar.gz` - Linux 桌面应用
+            - 解压后运行 `bundle/multi_platform_app`
+            
+            ### 💻 macOS
+            - `macos-build.tar.gz` - macOS 桌面应用
+            - ⚠️ 可能需要签名才能运行
             
             ### 📝 变更说明
             请参阅 [CHANGELOG.md](CHANGELOG.md) 了解详细变更。
+            
+            ### 🔧 系统要求
+            - **Android**: Android 5.0+ (API 21+)
+            - **iOS**: iOS 12.0+
+            - **Windows**: Windows 10+
+            - **Linux**: 支持 GTK3 的发行版
+            - **macOS**: macOS 10.14+
           files: |
-            artifacts/apk/*.apk
-            artifacts/aab/*.aab
+            artifacts/android/*.apk
+            artifacts/android/*.aab
+            artifacts/ios/*.tar.gz
+            artifacts/windows/*.zip
+            artifacts/linux/*.tar.gz
+            artifacts/macos/*.tar.gz
           draft: false
           prerelease: false
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
