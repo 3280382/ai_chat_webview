@@ -54,7 +54,7 @@ set(FLUTTER_MANAGED_DIR "\${CMAKE_CURRENT_SOURCE_DIR}/flutter")
 add_subdirectory(\${FLUTTER_MANAGED_DIR})
 
 # Application build
-default\nadd_executable(\${BINARY_NAME} main.cpp)
+add_executable(\${BINARY_NAME} main.cc)
 apply_standard_settings(\${BINARY_NAME})
 target_link_libraries(\${BINARY_NAME} PRIVATE flutter)
 target_link_libraries(\${BINARY_NAME} PRIVATE PkgConfig::GTK)

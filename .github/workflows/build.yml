@@ -145,6 +145,14 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
       
+      - name: Recreate iOS project if needed
+        run: |
+          if [ ! -f "ios/Runner.xcodeproj/project.pbxproj" ]; then
+            echo "iOS project incomplete, recreating..."
+            rm -rf ios/
+            flutter create --platforms=ios .
+          fi
+      
       - name: Get dependencies
         run: flutter pub get
       
@@ -177,6 +185,15 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
+      
+      - name: Recreate Windows project if needed
+        shell: pwsh
+        run: |
+          if (-Not (Test-Path "windows/CMakeLists.txt")) {
+            Write-Host "Windows project incomplete, recreating..."
+            Remove-Item -Recurse -Force windows/ -ErrorAction SilentlyContinue
+            flutter create --platforms=windows .
+          }
       
       - name: Get dependencies
         run: flutter pub get
@@ -219,6 +236,14 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
       
+      - name: Recreate Linux project if needed
+        run: |
+          if [ ! -f "linux/CMakeLists.txt" ] || ! grep -q "add_executable" linux/CMakeLists.txt 2>/dev/null; then
+            echo "Linux project incomplete, recreating..."
+            rm -rf linux/
+            flutter create --platforms=linux .
+          fi
+      
       - name: Get dependencies
         run: flutter pub get
       
@@ -254,6 +279,14 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
+      
+      - name: Recreate macOS project if needed
+        run: |
+          if [ ! -f "macos/Runner.xcodeproj/project.pbxproj" ]; then
+            echo "macOS project incomplete, recreating..."
+            rm -rf macos/
+            flutter create --platforms=macos .
+          fi
       
       - name: Get dependencies
         run: flutter pub get
