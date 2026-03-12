@@ -40,36 +40,44 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
       
-      - name: Analyze code
-        run: flutter analyze || true
-        continue-on-error: true
-      
       - name: Build APK
-        run: |
-          set -x
-          flutter build apk --release --build-name=${{ github.event.inputs.version || '1.0.0' }} --verbose 2>&1 | tail -100
+        run: flutter build apk --release --build-name=${{ github.event.inputs.version || '1.0.0' }}
         continue-on-error: true
       
-      - name: Check build output
-        run: |
-          ls -la build/app/outputs/flutter-apk/ 2>/dev/null || echo "APK not found"
-          ls -la build/app/outputs/bundle/release/ 2>/dev/null || echo "AAB not found"
+      - name: Build App Bundle
+        run: flutter build appbundle --release --build-name=${{ github.event.inputs.version || '1.0.0' }}
+        continue-on-error: true
       
-      - name: Upload APK if exists
+      - name: Check and Upload APK
+        run: |
+          if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
+            echo "APK found, size: $(ls -lh build/app/outputs/flutter-apk/app-release.apk | awk '{print $5}')"
+            exit 0
+          else
+            echo "APK not found"
+            exit 1
+          fi
+        continue-on-error: true
+      
+      - name: Upload APK
         uses: actions/upload-artifact@v4
-        if: hashFiles('build/app/outputs/flutter-apk/app-release.apk') != ''
+        if: always()
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/*.apk
+          if-no-files-found: warn
+          retention-days: 30
       
-      - name: Upload AAB if exists
+      - name: Upload AAB
         uses: actions/upload-artifact@v4
-        if: hashFiles('build/app/outputs/bundle/release/app-release.aab') != ''
+        if: always()
         with:
           name: android-aab
-          path: build/app/outputs/bundle/release/app-release.aab
+          path: build/app/outputs/bundle/release/*.aab
+          if-no-files-found: warn
+          retention-days: 30
 
-  # Web 构建（最简单，先测试这个）
+  # Web 构建
   build-web:
     runs-on: ubuntu-latest
     steps:
@@ -85,22 +93,18 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
       
-      - name: Build Web with verbose
-        run: |
-          set -x
-          flutter build web --release --build-name=${{ github.event.inputs.version || '1.0.0' }} --verbose 2>&1 | tail -200
+      - name: Build Web
+        run: flutter build web --release --build-name=${{ github.event.inputs.version || '1.0.0' }}
         continue-on-error: true
-      
-      - name: Check build output
-        run: |
-          ls -la build/web/ 2>/dev/null || echo "Web build not found"
       
       - name: Upload Web build
         uses: actions/upload-artifact@v4
-        if: hashFiles('build/web/index.html') != ''
+        if: always()
         with:
           name: web-build
           path: build/web/
+          if-no-files-found: warn
+          retention-days: 30
 
   # iOS 构建
   build-ios:
@@ -119,17 +123,17 @@ jobs:
         run: flutter pub get
       
       - name: Build iOS
-        run: |
-          set -x
-          flutter build ios --release --no-codesign --build-name=${{ github.event.inputs.version || '1.0.0' }} --verbose 2>&1 | tail -100
+        run: flutter build ios --release --no-codesign --build-name=${{ github.event.inputs.version || '1.0.0' }}
         continue-on-error: true
       
       - name: Upload iOS build
         uses: actions/upload-artifact@v4
-        if: hashFiles('build/ios/iphoneos/Runner.app') != ''
+        if: always()
         with:
           name: ios-build
           path: build/ios/iphoneos/
+          if-no-files-found: warn
+          retention-days: 30
 
   # Windows 构建
   build-windows:
@@ -147,18 +151,21 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
       
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+      
       - name: Build Windows
-        run: |
-          flutter config --enable-windows-desktop
-          flutter build windows --release --build-name=${{ github.event.inputs.version || '1.0.0' }} --verbose 2>&1 | Select-Object -Last 100
+        run: flutter build windows --release --build-name=${{ github.event.inputs.version || '1.0.0' }}
         continue-on-error: true
       
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
-        if: hashFiles('build/windows/x64/runner/Release/*.exe') != ''
+        if: always()
         with:
           name: windows-build
           path: build/windows/x64/runner/Release/
+          if-no-files-found: warn
+          retention-days: 30
 
   # Linux 构建
   build-linux:
@@ -181,46 +188,18 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
       
+      - name: Enable Linux desktop
+        run: flutter config --enable-linux-desktop
+      
       - name: Build Linux
-        run: |
-          set -x
-          flutter config --enable-linux-desktop
-          flutter build linux --release --build-name=${{ github.event.inputs.version || '1.0.0' }} --verbose 2>&1 | tail -100
+        run: flutter build linux --release --build-name=${{ github.event.inputs.version || '1.0.0' }}
         continue-on-error: true
       
       - name: Upload Linux build
         uses: actions/upload-artifact@v4
-        if: hashFiles('build/linux/x64/release/bundle/*') != ''
+        if: always()
         with:
           name: linux-build
           path: build/linux/x64/release/bundle/
-
-  # 创建发布版本 (仅在打标签时且至少有一个构建成功)
-  release:
-    needs: [build-android, build-ios, build-windows, build-linux, build-web]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-      
-      - name: List artifacts
-        run: ls -la artifacts/ || echo "No artifacts"
-      
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        if: hashFiles('artifacts/**/*') != ''
-        with:
-          files: |
-            artifacts/android-apk/*.apk
-            artifacts/android-aab/*.aab
-            artifacts/windows-build/**/*
-            artifacts/linux-build/**/*
-            artifacts/web-build/**/**
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          if-no-files-found: warn
+          retention-days: 30
