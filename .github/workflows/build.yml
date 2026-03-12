@@ -236,25 +236,25 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
       
-      - name: Fix or Recreate Linux project
+      - name: Recreate Linux project from scratch
         run: |
-          # Check if Linux project needs to be recreated
-          if [ ! -f "linux/CMakeLists.txt" ] || ! grep -q "add_executable" linux/CMakeLists.txt 2>/dev/null; then
-            echo "Linux project incomplete, recreating..."
-            rm -rf linux/
-            flutter create --platforms=linux .
-          fi
+          echo "Recreating Linux project to ensure clean state..."
+          rm -rf linux/
+          # Backup lib and other important files
+          cp -r lib /tmp/lib_backup
+          cp pubspec.yaml /tmp/
+          cp -r assets /tmp/ 2>/dev/null || true
           
-          # Ensure flutter subdirectory is properly set up
-          if [ ! -d "linux/flutter" ] || [ ! -f "linux/flutter/CMakeLists.txt" ]; then
-            echo "Setting up Flutter Linux embedding..."
-            # Create the flutter directory structure
-            mkdir -p linux/flutter
-            # Run flutter pub get to ensure all dependencies are resolved
-            flutter pub get
-            # Run a quick debug build to generate necessary files
-            flutter build linux --debug 2>/dev/null || true
-          fi
+          # Remove and recreate entire project structure
+          flutter create --platforms=linux,android,web --project-name=multi_platform_app .
+          
+          # Restore backed up files
+          rm -rf lib
+          mv /tmp/lib_backup lib
+          cp /tmp/pubspec.yaml .
+          mv /tmp/assets . 2>/dev/null || true
+          
+          echo "Linux project recreated successfully"
       
       - name: Get dependencies
         run: flutter pub get
