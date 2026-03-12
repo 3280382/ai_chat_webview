@@ -236,28 +236,24 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
       
-      - name: Recreate Linux project if needed
+      - name: Fix or Recreate Linux project
         run: |
+          # Check if Linux project needs to be recreated
           if [ ! -f "linux/CMakeLists.txt" ] || ! grep -q "add_executable" linux/CMakeLists.txt 2>/dev/null; then
             echo "Linux project incomplete, recreating..."
             rm -rf linux/
             flutter create --platforms=linux .
           fi
-      
-      - name: Fix CMakeLists.txt variables
-        run: |
-          # Fix variable syntax in CMakeLists.txt - flutter create generates \${VAR} but we need ${VAR}
-          if [ -f "linux/CMakeLists.txt" ]; then
-            echo "Fixing CMakeLists.txt variable syntax..."
-            sed -i 's/\\\${/${/g' linux/CMakeLists.txt
-            sed -i 's/\\\}/}/g' linux/CMakeLists.txt
-            # Also fix flutter subdirectory CMake files if they exist
-            if [ -d "linux/flutter" ]; then
-              find linux/flutter -name "*.cmake" -o -name "CMakeLists.txt" 2>/dev/null | while read f; do
-                sed -i 's/\\\${/${/g' "$f"
-                sed -i 's/\\\}/}/g' "$f"
-              done
-            fi
+          
+          # Ensure flutter subdirectory is properly set up
+          if [ ! -d "linux/flutter" ] || [ ! -f "linux/flutter/CMakeLists.txt" ]; then
+            echo "Setting up Flutter Linux embedding..."
+            # Create the flutter directory structure
+            mkdir -p linux/flutter
+            # Run flutter pub get to ensure all dependencies are resolved
+            flutter pub get
+            # Run a quick debug build to generate necessary files
+            flutter build linux --debug 2>/dev/null || true
           fi
       
       - name: Get dependencies
