@@ -3,14 +3,8 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Platform specific initialization for Android
-  if (!kIsWeb && Platform.isAndroid) {
-    await AndroidWebViewController.setWebContentsDebuggingEnabled(true);
-  }
-  
   runApp(const MyApp());
 }
 
@@ -49,16 +43,13 @@ class WebViewScreen extends StatefulWidget {
 }
 
 class _WebViewScreenState extends State<WebViewScreen> {
-  WebViewController? _controller;
+  late final WebViewController _controller;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    
-    if (!kIsWeb) {
-      _initWebView();
-    }
+    _initWebView();
   }
 
   void _initWebView() {
@@ -89,8 +80,12 @@ class _WebViewScreenState extends State<WebViewScreen> {
             return NavigationDecision.navigate;
           },
         ),
-      )
-      ..loadFlutterAsset('assets/ai-chat.html');
+      );
+    
+    // Load the HTML file from assets
+    if (!kIsWeb) {
+      _controller.loadFlutterAsset('assets/ai-chat.html');
+    }
   }
 
   @override
@@ -105,7 +100,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
             IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: () {
-                _controller?.reload();
+                _controller.reload();
               },
             ),
         ],
@@ -116,7 +111,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
 
   Widget _buildWebPlatform() {
     // For web platform, show a message that WebView is not supported
-    // Instead, we'll load the HTML content directly using HtmlElementView
     return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -144,13 +138,9 @@ class _WebViewScreenState extends State<WebViewScreen> {
   }
 
   Widget _buildMobileDesktop() {
-    if (_controller == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
     return Stack(
       children: [
-        WebViewWidget(controller: _controller!),
+        WebViewWidget(controller: _controller),
         if (_isLoading)
           const Center(
             child: CircularProgressIndicator(),
