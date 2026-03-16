@@ -95,14 +95,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
     await _controller.loadFlutterAsset('assets/ai-chat.html');
   }
 
-  Future<void> _reload() async {
-    setState(() {
-      _isLoading = true;
-      _loadingProgress = 0;
-    });
-    await _controller.reload();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -151,7 +143,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
                       '加载中... $_loadingProgress%',
                       style: TextStyle(
                         fontSize: 14,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        color: Theme.of(context).colorScheme.onSurface.withAlpha(153),
                       ),
                     ),
                   ],
