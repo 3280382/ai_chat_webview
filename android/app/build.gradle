@@ -42,7 +42,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.ai_chat_webview"
-        minSdk = flutter.minSdkVersion
+        minSdk 21
         targetSdk = flutter.targetSdkVersion
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName

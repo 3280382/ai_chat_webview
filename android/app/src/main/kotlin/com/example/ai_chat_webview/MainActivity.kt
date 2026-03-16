@@ -1,4 +1,4 @@
-package com.example.multi_platform_app
+package com.example.ai_chat_webview
 
 import io.flutter.embedding.android.FlutterActivity
 
