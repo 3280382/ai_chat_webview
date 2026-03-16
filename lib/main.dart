@@ -90,6 +90,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text('AI Chat'),
         backgroundColor: Theme.of(context).colorScheme.primary,
@@ -109,7 +110,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
   }
 
   Widget _buildWebPlatform() {
-    // For web platform, show a message that WebView is not supported
     return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -137,14 +137,16 @@ class _WebViewScreenState extends State<WebViewScreen> {
   }
 
   Widget _buildMobileDesktop() {
-    return Stack(
-      children: [
-        WebViewWidget(controller: _controller),
-        if (_isLoading)
-          const Center(
-            child: CircularProgressIndicator(),
-          ),
-      ],
+    return SafeArea(
+      child: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_isLoading)
+            const Center(
+              child: CircularProgressIndicator(),
+            ),
+        ],
+      ),
     );
   }
 }

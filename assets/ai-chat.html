@@ -98,8 +98,9 @@
       
       /* Layout */
       --header-height: 64px;
-      --bottom-nav-height: 72px;
+      --bottom-nav-height: calc(72px + env(safe-area-inset-bottom, 0px));
       --sidebar-width: 280px;
+      --safe-area-bottom: env(safe-area-inset-bottom, 0px);
     }
     
     /* Dark Theme */
@@ -660,6 +661,7 @@
        ======================================== */
     .input-container {
       padding: var(--space-4);
+      padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
       background: var(--bg-primary);
       border-top: 1px solid var(--border-subtle);
       position: relative;
