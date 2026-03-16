@@ -44,6 +44,7 @@ class WebViewScreen extends StatefulWidget {
 class _WebViewScreenState extends State<WebViewScreen> {
   late final WebViewController _controller;
   bool _isLoading = true;
+  int _loadingProgress = 0;
 
   @override
   void initState() {
@@ -55,25 +56,35 @@ class _WebViewScreenState extends State<WebViewScreen> {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0x00000000))
+      ..setUserAgent(
+        'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36',
+      )
+      ..enableZoom(false)
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (int progress) {
             setState(() {
+              _loadingProgress = progress;
               _isLoading = progress < 100;
             });
           },
           onPageStarted: (String url) {
             setState(() {
               _isLoading = true;
+              _loadingProgress = 0;
             });
           },
           onPageFinished: (String url) {
             setState(() {
               _isLoading = false;
+              _loadingProgress = 100;
             });
           },
           onWebResourceError: (WebResourceError error) {
             debugPrint('WebView error: ${error.description}');
+            setState(() {
+              _isLoading = false;
+            });
           },
           onNavigationRequest: (NavigationRequest request) {
             return NavigationDecision.navigate;
@@ -83,8 +94,22 @@ class _WebViewScreenState extends State<WebViewScreen> {
     
     // Load the HTML file from assets
     if (!kIsWeb) {
-      _controller.loadFlutterAsset('assets/ai-chat.html');
+      _loadHtml();
     }
+  }
+
+  Future<void> _loadHtml() async {
+    // 添加小延迟让 UI 先渲染加载指示器
+    await Future.delayed(const Duration(milliseconds: 100));
+    await _controller.loadFlutterAsset('assets/ai-chat.html');
+  }
+
+  Future<void> _reload() async {
+    setState(() {
+      _isLoading = true;
+      _loadingProgress = 0;
+    });
+    await _controller.reload();
   }
 
   @override
@@ -99,9 +124,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
           if (!kIsWeb)
             IconButton(
               icon: const Icon(Icons.refresh),
-              onPressed: () {
-                _controller.reload();
-              },
+              onPressed: _isLoading ? null : _reload,
             ),
         ],
       ),
@@ -142,8 +165,24 @@ class _WebViewScreenState extends State<WebViewScreen> {
         children: [
           WebViewWidget(controller: _controller),
           if (_isLoading)
-            const Center(
-              child: CircularProgressIndicator(),
+            Container(
+              color: Colors.white,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    Text(
+                      '加载中... $_loadingProgress%',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
         ],
       ),
