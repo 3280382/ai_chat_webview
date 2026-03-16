@@ -246,7 +246,7 @@ jobs:
           cp -r assets /tmp/ 2>/dev/null || true
           
           # Remove and recreate entire project structure
-          flutter create --platforms=linux,android,web --project-name=multi_platform_app .
+          flutter create --platforms=linux,android,web --project-name=ai_chat_webview .
           
           # Restore backed up files
           rm -rf lib
@@ -413,11 +413,11 @@ jobs:
             
             ### 🪟 Windows
             - `windows-build.zip` - Windows 桌面应用
-            - 解压后运行 `multi_platform_app.exe`
+            - 解压后运行 `ai_chat_webview.exe`
             
             ### 🐧 Linux
             - `linux-build.tar.gz` - Linux 桌面应用
-            - 解压后运行 `bundle/multi_platform_app`
+            - 解压后运行 `bundle/ai_chat_webview`
             
             ### 💻 macOS
             - `macos-build.tar.gz` - macOS 桌面应用
