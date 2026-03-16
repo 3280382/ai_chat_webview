@@ -56,10 +56,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0x00000000))
-      ..setUserAgent(
-        'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36',
-      )
-      ..enableZoom(false)
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (int progress) {
@@ -82,9 +78,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
           },
           onWebResourceError: (WebResourceError error) {
             debugPrint('WebView error: ${error.description}');
-            setState(() {
-              _isLoading = false;
-            });
           },
           onNavigationRequest: (NavigationRequest request) {
             return NavigationDecision.navigate;
@@ -92,14 +85,12 @@ class _WebViewScreenState extends State<WebViewScreen> {
         ),
       );
     
-    // Load the HTML file from assets
     if (!kIsWeb) {
       _loadHtml();
     }
   }
 
   Future<void> _loadHtml() async {
-    // 添加小延迟让 UI 先渲染加载指示器
     await Future.delayed(const Duration(milliseconds: 100));
     await _controller.loadFlutterAsset('assets/ai-chat.html');
   }
@@ -115,19 +106,8 @@ class _WebViewScreenState extends State<WebViewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // 去掉 AppBar，让 WebView 全屏
       resizeToAvoidBottomInset: true,
-      appBar: AppBar(
-        title: const Text('AI Chat'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        actions: [
-          if (!kIsWeb)
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _isLoading ? null : _reload,
-            ),
-        ],
-      ),
       body: kIsWeb ? _buildWebPlatform() : _buildMobileDesktop(),
     );
   }
@@ -148,12 +128,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
             'WebView is not supported on web platform.',
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: 16),
-          Text(
-            'The ai-chat.html file is in the assets folder\nand can be opened directly in a browser.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey),
-          ),
         ],
       ),
     );
@@ -166,7 +140,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
           WebViewWidget(controller: _controller),
           if (_isLoading)
             Container(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -175,9 +149,9 @@ class _WebViewScreenState extends State<WebViewScreen> {
                     const SizedBox(height: 16),
                     Text(
                       '加载中... $_loadingProgress%',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                       ),
                     ),
                   ],
